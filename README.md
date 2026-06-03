@@ -95,6 +95,12 @@ To change hosting, set the `DEPLOY_PROVIDER` variable and that provider's
 env/secrets (below). To add a host type, drop `deploy/providers/<name>.sh` and
 list its required env at the top of the file.
 
+Any Docker + SSH host works with the default `ssh-docker` provider unchanged —
+including an AWS EC2 instance. See
+[docs/deploy-aws-free-tier.md](docs/deploy-aws-free-tier.md) for a step-by-step
+free-tier walkthrough (launch EC2, install Docker + swap, repoint the `staging`
+environment).
+
 ### Configuration (GitHub → Settings → Environments → `staging`)
 
 Stored as **variables** (non-secret) and **secrets**:
