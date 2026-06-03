@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Ruth M Gilbert&#39;s New Zealand inspired oil paintings.">
+    <meta http-equiv="content-type" content="text/html;charset=UTF-8">
+    <title>Ruth M Gilbert, Artist</title>
+    <!-- Runtime config injected by the Node backend (CMS base + admin deep-link target). -->
+    <script src="/app-config.js"></script>
+    <link rel="shortcut icon" href="/static/favicon.ico">
+    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css">
+    <link rel="stylesheet" href="//unpkg.com/blueimp-gallery@3.4.0/css/blueimp-gallery.min.css">
+    <!-- <link rel="stylesheet" href="/static/blueimp-gallery.min.css"> -->
+    <!-- <link rel="stylesheet" href="/static/bootstrap-image-gallery.css"> -->
+    <!--<link rel="stylesheet" href="//unpkg.com/bootstrap@5.3.3/dist/css/bootstrap.min.css"> -->
+    <!-- <link rel="stylesheet" href="//unpkg.com/bootstrap-image-gallery@3.1.5/css/bootstrap-image-gallery.css"> -->
+</head>
+
+<body class="no-touch" x-data>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/1.10.0/jquery.min.js"></script>
+    <script src="//unpkg.com/alpinejs" defer></script>
+    <script src="//unpkg.com/blueimp-gallery@3.4.0/js/blueimp-gallery.min.js" defer></script>
+    <!--<script src="//unpkg.com/bootstrap@5.3.3/dist/js/bootstrap.min.js" defer></script>-->
+    <script src="/static/bootstrap.min.js"></script>
+
+    <div id="blueimp-gallery" class="blueimp-gallery">
+
+        <div class="slides"></div>
+
+        <h3 class="title"></h3>
+        <a class="prev">‹</a>
+        <a class="next">›</a>
+        <a class="close">×</a>
+        <a class="play-pause"></a>
+        <ol class="indicator"></ol>
+
+        <div class="modal fade" id="gallery-modal" tabindex="-1" role="dialog" aria-labelledby="modal"
+            aria-hidden="true" data-backdrop="static">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+                        <h4 class="modal-title" id="myModalLabel"></h4>
+                    </div>
+                    <div class="modal-body">
+                        <div class="modal-landscape">
+                            <div class="modal-image"></div>
+                            <!-- <br />
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            <a type="button" class="btn btn-default custom-pull-left" id="inquire"
+                                href="mailto:art@ruthgilbert.nz?subject=Enquiry about ">
+                                <i class="glyphicon glyphicon-envelope"></i>
+                                Inquire about this painting
+                            </a> -->
+                            <!--<button type="button" class="btn btn-default pull-right" id="fullscreen">
+                                <i class="glyphicon glyphicon-fullscreen"></i>
+                                View fullscreen
+                            </button>-->
+                            <!-- <br /> -->
+                            <div class="description">
+                                <p class="editable">
+                                </p>
+                                <a id="edit" style="display: none;"></a>
+                            </div>
+                        </div>
+                        <div class="modal-portrait" style="display: 'none; 20px 20px 0 0';">
+                            <div class="modal-image"></div>
+                            <div class="description">
+                                <p class="editable">
+                                </p>
+                                <a id="edit" style="display: none;"></a>
+                            </div>
+                            <div class="clear"></div>
+                            <!-- <br /> -->
+                            <!-- <a type="button" class="btn btn-default custom-pull-left" id="inquire"
+                                href="mailto:art@ruthgilbert.nz?subject=Enquiry about ">
+                                <i class="glyphicon glyphicon-envelope"></i>
+                                Inquire about this painting
+                            </a> -->
+                            <!--<button type="button" class="btn btn-default pull-right" id="fullscreen">
+                                <i class="glyphicon glyphicon-fullscreen"></i>
+                                View fullscreen
+                            </button>-->
+                            <!-- <br /> -->
+                        </div>
+                        <div class="modal-container"></div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-default pull-left prev">
+                            <i class="glyphicon glyphicon-chevron-left"></i>
+                            Previous
+                        </button>
+                        <button type="button" class="btn btn-primary pull-left" id="inquire"
+                            href="mailto:art@ruthgilbert.nz?subject=Enquiry about ">
+                            <i class="glyphicon glyphicon-envelope"></i>
+                            Inquire about this painting
+                        </button>
+                        <button type="button" class="btn btn-primary next">
+                            Next
+                            <i class="glyphicon glyphicon-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="jumbotron canvas-tile">
+        <div class="container" style="height:80%">
+            <img class="header-image" style="height:100%" src="/static/images/header.jpg"></img>
+            <div class="inspiration">
+                <p><a href="#inspiration" data-toggle="modal" data-target="#inspiration-modal">Inspiration</a></p>
+            </div>
+            <div class="commissions">
+                <p><a href="mailto:art@ruthgilbert.nz?subject=Commission enquiry">Inquiries &amp; Commissions</a></p>
+            </div>
+        </div>
+    </div>
+    <div class="modal fade" id="inspiration-modal" tabindex="-1" role="dialog" aria-labelledby="inspiration-modal-title">
+        <div class="modal-dialog" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close"><span
+                            aria-hidden="true">&times;</span></button>
+                    <h4 class="modal-title" id="inspiration-modal-title">Inspiration</h4>
+                </div>
+                <div class="modal-body">
+                    <div class="editable">
+                        I love New Zealand scenery. I love tramping and getting to remote and rugged places; where it is
+                        a struggle to reach and where life is not taken for granted.
+                        I want to capture the sense of beauty together with the remoteness; to portray the strength and
+                        potency of the light on the rugged beauty of the land.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div x-data="fetchData()" x-init="loadData()" class="thumbnails" @click.prevent="showGallery($el)">
+        <template x-for="item in items" :key="item.id">
+            <a class="painting-thumbnail" x-bind:href="baseURL + '/assets/' + item.image" x-bind:data-id="item.id"
+                x-bind:title="item.title + (item.sold ? ' [SOLD]' : '')" x-bind:data-portrait="item.portrait" data-gallery>
+                <div class="box">
+                    <div class="boxInner">
+                        <img x-bind:src="baseURL + '/assets/' + item.image + '?key=thumbnail-500'" />
+                        <div class="titleBox" x-text="item.title + (item.sold ? ' [SOLD]' : '')"></div>
+                    </div>
+                </div>
+                <div id="description-content" style="display: none;" x-html="item.description"></div>
+                <div id="edit-template" x-bind:href="adminEditUrl(item.id)" style="display: none;"></div>
+            </a>
+        </template>
+    </div>
+    <div class="footer">
+        <small class="copyright" x-text="'© Copyright ' + (new Date().getFullYear()) + ', Ruth Gilbert'"></small>
+    </div>
+    <script src="/static/bootstrap-image-gallery.js"></script>
+    <!-- <script src="/static/gallery.js"></script> -->
+
+    <script>
+        var gallery;
+                    var globalItems;
+                    var cutItemIndex = null;
+        // Where the admin "edit this painting" deep-links point. The Node backend
+        // injects window.APP_CONFIG (see /app-config.js); falls back to same-origin.
+        var CMS_BASE = (window.APP_CONFIG && window.APP_CONFIG.cmsBase) || '/cms';
+        var CMS_ADMIN = (window.APP_CONFIG && window.APP_CONFIG.cmsAdminUrl) || CMS_BASE;
+        function adminEditUrl(id) { return CMS_ADMIN.replace(/\/$/, '') + '/admin/content/Artworks/' + id; }
+        function fetchData() {
+            return {
+                baseURL: CMS_BASE,
+                items: [],
+                loadData($el) {
+                    fetch(this.baseURL + '/items/Artworks')
+                        .then(response => response.json())
+                        .then(body => {
+                            console.log(body);
+                            // Bare Directus (no Artworks collection yet) returns an
+                            // errors payload with no `data` — degrade to an empty grid.
+                            this.items = (body && body.data) || [];
+                            globalItems = this.items;
+                        })
+                        .catch(error => console.error('Error fetching data:', error));
+                }
+            }
+        }
+        function showGallery($el) {
+            var target = event.target || event.srcElement
+            let links = $el.getElementsByTagName('a');
+            var options = {
+                urlProperty: 'href',
+                index: target.parentElement.parentElement.parentElement,
+                onopen: function () {
+                    // Callback function executed when the Gallery is initialized.
+                    console.log('Gallery initialized');
+                },
+                onopened: function () {
+                    // Callback function executed when the Gallery has been initialized
+                    // and the initialization transition has been completed.
+                    console.log('Gallery opened');
+                },
+                onslide: function (index, slide) {
+                    // Callback function executed on slide change.
+                    console.log('Slide changed to ' + index);
+                    cutItemIndex = index;
+                },
+                onslideend: function (index, slide) {
+                    // Callback function executed after the slide change transition.
+                    console.log('Slide changed to ' + index);
+                },
+                onslidecomplete: function (index, slide) {
+                    // Callback function executed on slide content load.
+                    console.log('Slide content loaded');
+                },
+                onclose: function () {
+                    // Callback function executed when the Gallery is about to be closed.
+                    console.log('Gallery about to be closed');
+                    cutItemIndex = null;
+                },
+                onclosed: function () {
+                    // Callback function executed when the Gallery has been closed
+                    // and the closing transition has been completed.
+                    console.log('Gallery closed');
+                }
+            };
+            gallery = blueimp.Gallery(links, options);
+        }
+
+        document.addEventListener("DOMContentLoaded", function () {
+
+            document.addEventListener('keydown', function (event) {
+                if (event.altKey && event.shiftKey && event.key === 'E' && cutItemIndex !== null) {
+                    window.open(adminEditUrl(globalItems[cutItemIndex].id), '_blank');
+                }
+            });
+
+            // $('#blueimp-gallery').on('fullScreen', function (event, index) {
+            //     console.log("gallery: fullScreen");
+
+            //     index = gallery.index;
+            //     //console.log("history: adding #" + index + "_full");
+            //     var id = $('.slide[data-index="' + index + '"]').find('.modal').data('id');
+
+
+            //     // reopen the gallery in fullscreen mode to the same index
+            //     $('#blueimp-gallery').data('reopen', { id: id, fullScreen: true });
+            //     // gallery.close();
+
+            // })
+
+            let Gallery = window.blueimp.Gallery;
+
+            $.extend(Gallery.prototype.options, {
+                useBootstrapModal: false,
+                closeOnSwipeUpOrDown: false,
+                hidePageScrollbars: true,
+                disableScroll: false,
+                continuous: false,
+                closeOnSlideClick: false,
+                toggleControlsOnReturn: false,
+            });
+
+            var close = Gallery.prototype.close,
+                imageFactory = Gallery.prototype.imageFactory,
+                videoFactory = Gallery.prototype.videoFactory,
+                textFactory = Gallery.prototype.textFactory;
+
+            $.extend(Gallery.prototype, {
+
+                modalFactory: function (obj, callback, factoryInterface, factory) {
+                    var button = $(obj);
+
+                    if ($('#blueimp-gallery').data('fullScreen') || factoryInterface) {
+                        var img = factory.call(this, obj, callback, factoryInterface);
+                        $(img).data('id', button.data('id'));
+                        return img;
+                    }
+
+                    var that = this;
+                    var modalTemplate = $(document.getElementById('gallery-modal'));
+                    var modal = modalTemplate.clone().show()
+                        .on('click', function (event) {
+                            // Close modal if click is outside of modal-content:
+                            if (event.target === modal[0] ||
+                                event.target === modal.children()[0]) {
+                                event.preventDefault();
+                                event.stopPropagation();
+                                that.close();
+                            }
+                        });
+
+                    modal.find('#fullscreen').on('click', function () {
+                        $('#blueimp-gallery').trigger('fullScreen', button.data('id'));
+                    })
+
+                    modal.data('id', button.data('id'));
+                    var portrait = button.data('portrait') === true;
+                    var html = button.find('#description-content').html();
+                    var edit = button.find('#edit-template').attr('href');
+
+                    if (portrait) {
+                        modal.find('.modal-portrait').show();
+                        modal.find('.modal-landscape').hide();
+                    } else {
+                        modal.find('.modal-portrait').hide();
+                        modal.find('.modal-landscape').show();
+                    }
+                    var element = factory.call(this, obj, function (event) {
+                        callback({
+                            type: event.type,
+                            target: modal[0]
+                        });
+                        modal.addClass('in');
+                    }, factoryInterface);
+
+                    modal.find('.modal-title').text(element.title || String.fromCharCode(160));
+                    modal.find('.modal-image').empty().append(element);
+                    modal.find('.editable').html(html);
+                    // modal.find('#edit').attr('href', edit);
+                    // currentEditUrl = edit;
+
+                    var hr = modal.find('#inquire').attr('href');
+                    modal.find('#inquire').attr('href', hr + '"' + element.title + '"');
+                    return modal[0];
+                },
+
+                imageFactory: function (obj, callback, factoryInterface) {
+                    return this.modalFactory(obj, callback, factoryInterface, imageFactory);
+                },
+
+                videoFactory: function (obj, callback, factoryInterface) {
+                    return this.modalFactory(obj, callback, factoryInterface, videoFactory);
+                },
+
+                textFactory: function (obj, callback, factoryInterface) {
+                    return this.modalFactory(obj, callback, factoryInterface, textFactory);
+                },
+
+                close: function () {
+                    this.container.find('.modal').removeClass('in');
+                    close.call(this);
+                }
+
+            });
+
+        })
+    </script>
+    <script>
+            (function (i, s, o, g, r, a, m) {
+                i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function () {
+                    (i[r].q = i[r].q || []).push(arguments)
+                }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                    m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+            })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+        ga('create', 'UA-74432391-1', 'auto');
+        ga('require', 'linkid');
+        ga('send', 'pageview');
+    </script>
+</body>
+
+</html>

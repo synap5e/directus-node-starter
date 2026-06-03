@@ -1,0 +1,51 @@
+# Deployment stack: identical to docker-compose.yml but the web service pulls a
+# prebuilt image from a registry (GHCR) instead of building from source. This is
+# the file the ssh-docker provider copies to the target host as docker-compose.yml.
+#
+# All values come from the .env the deploy provider renders next to this file.
+name: directus-node-starter
+
+services:
+  directus:
+    image: directus/directus:${DIRECTUS_VERSION:-11}
+    restart: unless-stopped
+    ports:
+      - "${DIRECTUS_PORT:-8097}:8055"
+    environment:
+      SECRET: "${DIRECTUS_SECRET:?}"
+      ADMIN_EMAIL: "${DIRECTUS_ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD: "${DIRECTUS_ADMIN_PASSWORD:?}"
+      DB_CLIENT: "sqlite3"
+      DB_FILENAME: "/directus/database/data.db"
+      WEBSOCKETS_ENABLED: "true"
+      PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+    volumes:
+      - directus-database:/directus/database
+      - directus-uploads:/directus/uploads
+      - directus-extensions:/directus/extensions
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8055/server/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  web:
+    image: "${WEB_IMAGE:?set WEB_IMAGE to the published web image}"
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8098}:8080"
+    environment:
+      PORT: "8080"
+      DIRECTUS_URL: "http://directus:8055"
+      DIRECTUS_PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+    depends_on:
+      directus:
+        condition: service_healthy
+
+volumes:
+  directus-database:
+  directus-uploads:
+  directus-extensions:

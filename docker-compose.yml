@@ -1,0 +1,57 @@
+# Local / reference stack: Directus (public-facing) + Node backend serving the FE.
+#
+#   cp .env.example .env   # then edit secrets
+#   docker compose up --build
+#
+# Frontend:        http://localhost:8098
+# Directus admin:  http://localhost:8097/admin   (log in with ADMIN_EMAIL/PASSWORD)
+#
+# The deployed variant is docker-compose.deploy.yml (pulls the prebuilt web image
+# from GHCR instead of building locally). Keep the two in sync.
+name: directus-node-starter
+
+services:
+  directus:
+    image: directus/directus:${DIRECTUS_VERSION:-11}
+    restart: unless-stopped
+    ports:
+      - "${DIRECTUS_PORT:-8097}:8055"
+    environment:
+      SECRET: "${DIRECTUS_SECRET:?set DIRECTUS_SECRET in .env}"
+      ADMIN_EMAIL: "${DIRECTUS_ADMIN_EMAIL:-admin@example.com}"
+      ADMIN_PASSWORD: "${DIRECTUS_ADMIN_PASSWORD:?set DIRECTUS_ADMIN_PASSWORD in .env}"
+      DB_CLIENT: "sqlite3"
+      DB_FILENAME: "/directus/database/data.db"
+      WEBSOCKETS_ENABLED: "true"
+      PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+      CORS_ENABLED: "true"
+      CORS_ORIGIN: "true"
+    volumes:
+      - directus-database:/directus/database
+      - directus-uploads:/directus/uploads
+      - directus-extensions:/directus/extensions
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8055/server/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 18
+      start_period: 30s
+
+  web:
+    build: ./web
+    image: ${WEB_IMAGE:-directus-node-starter-web:local}
+    restart: unless-stopped
+    ports:
+      - "${WEB_PORT:-8098}:8080"
+    environment:
+      PORT: "8080"
+      DIRECTUS_URL: "http://directus:8055"
+      DIRECTUS_PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+    depends_on:
+      directus:
+        condition: service_healthy
+
+volumes:
+  directus-database:
+  directus-uploads:
+  directus-extensions:

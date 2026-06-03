@@ -1,0 +1,112 @@
+name: ci-cd
+
+# Build the web image on every push/PR, then deploy to the `staging` environment
+# on pushes to main. Hosting is provider-swappable: the deploy job just runs
+# ./deploy/deploy.sh, which dispatches on the DEPLOY_PROVIDER variable.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Environment to deploy
+        default: staging
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}/web
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=sha
+            type=raw,value=staging,enable={{is_default_branch}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push web image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./web
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy
+        run: bash ./deploy/deploy.sh
+        env:
+          # Which hosting backend to use (deploy/providers/<name>.sh).
+          DEPLOY_PROVIDER: ${{ vars.DEPLOY_PROVIDER }}
+          # Image just built/pushed by the build job.
+          WEB_IMAGE: ${{ env.IMAGE }}:staging
+
+          # --- ssh-docker provider ---
+          SSH_HOST: ${{ vars.SSH_HOST }}
+          SSH_USER: ${{ vars.SSH_USER }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+          SSH_KEY: ${{ secrets.SSH_KEY }}
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+          # GHCR creds so the host can pull (works for private packages too).
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+          # --- fly provider (unused unless DEPLOY_PROVIDER=fly) ---
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+          FLY_WEB_APP: ${{ vars.FLY_WEB_APP }}
+          FLY_DIRECTUS_APP: ${{ vars.FLY_DIRECTUS_APP }}
+          FLY_REGION: ${{ vars.FLY_REGION }}
+
+          # --- shared app config ---
+          DIRECTUS_VERSION: ${{ vars.DIRECTUS_VERSION }}
+          DIRECTUS_PORT: ${{ vars.DIRECTUS_PORT }}
+          WEB_PORT: ${{ vars.WEB_PORT }}
+          DIRECTUS_PUBLIC_URL: ${{ vars.DIRECTUS_PUBLIC_URL }}
+          DIRECTUS_ADMIN_EMAIL: ${{ vars.DIRECTUS_ADMIN_EMAIL }}
+          DIRECTUS_SECRET: ${{ secrets.DIRECTUS_SECRET }}
+          DIRECTUS_ADMIN_PASSWORD: ${{ secrets.DIRECTUS_ADMIN_PASSWORD }}
+
+      - name: Smoke test
+        if: ${{ vars.DEPLOY_PROVIDER == 'ssh-docker' }}
+        run: |
+          base="http://${{ vars.SSH_HOST }}:${{ vars.WEB_PORT || '8098' }}"
+          echo "Waiting for $base/healthz ..."
+          for i in $(seq 1 30); do
+            if curl -fsS "$base/healthz" >/dev/null 2>&1; then
+              echo "web healthy"; curl -fsS "$base/healthz"; exit 0
+            fi
+            sleep 5
+          done
+          echo "web did not become healthy in time" >&2
+          exit 1
