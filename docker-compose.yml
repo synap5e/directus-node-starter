@@ -3,8 +3,12 @@
 #   cp .env.example .env   # then edit secrets
 #   docker compose up --build
 #
-# Frontend:        http://localhost:8098
-# Directus admin:  http://localhost:8097/admin   (log in with ADMIN_EMAIL/PASSWORD)
+# Frontend:        http://localhost:8080
+# Directus admin:  http://localhost:8055/admin   (log in with ADMIN_EMAIL/PASSWORD)
+#
+# Local dev defaults to 8080 so you don't need privileged port 80. The deploy
+# compose (docker-compose.deploy.yml) defaults the frontend to port 80 for a
+# fresh host; override WEB_PORT/DIRECTUS_PORT anywhere those ports are taken.
 #
 # The deployed variant is docker-compose.deploy.yml (pulls the prebuilt web image
 # from GHCR instead of building locally). Keep the two in sync.
@@ -15,7 +19,7 @@ services:
     image: directus/directus:${DIRECTUS_VERSION:-11}
     restart: unless-stopped
     ports:
-      - "${DIRECTUS_PORT:-8097}:8055"
+      - "${DIRECTUS_PORT:-8055}:8055"
     environment:
       SECRET: "${DIRECTUS_SECRET:?set DIRECTUS_SECRET in .env}"
       ADMIN_EMAIL: "${DIRECTUS_ADMIN_EMAIL:-admin@example.com}"
@@ -23,7 +27,7 @@ services:
       DB_CLIENT: "sqlite3"
       DB_FILENAME: "/directus/database/data.db"
       WEBSOCKETS_ENABLED: "true"
-      PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+      PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8055}"
       CORS_ENABLED: "true"
       CORS_ORIGIN: "true"
     volumes:
@@ -42,11 +46,11 @@ services:
     image: ${WEB_IMAGE:-directus-node-starter-web:local}
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-8098}:8080"
+      - "${WEB_PORT:-8080}:8080"
     environment:
       PORT: "8080"
       DIRECTUS_URL: "http://directus:8055"
-      DIRECTUS_PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+      DIRECTUS_PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8055}"
     depends_on:
       directus:
         condition: service_healthy

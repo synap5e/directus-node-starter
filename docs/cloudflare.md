@@ -11,12 +11,15 @@ ports**. The supported ones are:
 - HTTP: `80, 8080, 8880, 2052, 2082, 2086, 2095`
 - HTTPS: `443, 2053, 2083, 2087, 2096, 8443`
 
-**`8097` and `8098` are not on that list**, so you cannot just point an
-orange-clouded DNS record at `host:8097`. You have two real options:
+The **frontend on port 80** (the default on a fresh host) is on that list, so you
+*can* orange-cloud it directly. The catch is the **Directus admin on `:8055`**,
+which is *not* a supported proxied port — so to put the admin behind Cloudflare
+you need a Tunnel or a reverse proxy. (If you deployed on non-standard ports like
+`8097`/`8098`, neither is supported and this applies to both services.)
 
 | Option | What it needs | Best when |
 |---|---|---|
-| **A. Cloudflare Tunnel** (recommended) | a `cloudflared` container; **no open inbound ports** | you want free TLS with the least fuss and the tightest firewall |
+| **A. Cloudflare Tunnel** (recommended) | a `cloudflared` container; **no open inbound ports** | you want free TLS for *both* frontend and admin with the least fuss and the tightest firewall |
 | **B. Orange-cloud + host reverse proxy** | a proxy (Caddy/Nginx/Traefik) on `80/443` on the host | you already run a reverse proxy / want standard ports |
 
 Tunnel is the cleaner free path and is what the rest of this doc covers.
@@ -25,8 +28,8 @@ Tunnel is the cleaner free path and is what the rest of this doc covers.
 
 `cloudflared` makes an **outbound** connection to Cloudflare and maps public
 hostnames to your internal services. Nothing listens on a public port; you can
-close `8097`/`8098` (and even keep `22` locked down) entirely. Works the same on
-uint8.me, EC2, or anywhere.
+close the published ports (`80`/`8055`, or whatever you used) and even keep `22`
+locked down entirely. Works the same on uint8.me, EC2, or anywhere.
 
 ### 1. Add your domain + create a tunnel
 
@@ -94,9 +97,10 @@ SESSION_COOKIE_SAME_SITE=lax
 
 ### 5. Close the public ports (optional but recommended)
 
-With the tunnel doing the serving, you no longer need `8097`/`8098` exposed.
-Either bind them to localhost or drop the `ports:` blocks from the compose on the
-host, and tighten the firewall / security group to outbound-only (plus SSH).
+With the tunnel doing the serving, you no longer need the published ports
+(`80`/`8055`) exposed. Either bind them to localhost or drop the `ports:` blocks
+from the compose on the host, and tighten the firewall / security group to
+outbound-only (plus SSH).
 
 ## Option B — Orange-cloud + host reverse proxy
 
@@ -104,8 +108,8 @@ If you'd rather keep classic DNS proxying: run a reverse proxy on the host
 listening on `443` (e.g. Caddy with automatic Let's Encrypt, or Cloudflare
 Origin Certificates + "Full (strict)" SSL), proxy `/` to `web:8080`, point an
 orange-clouded `A`/`CNAME` record at the host, and set `DIRECTUS_PUBLIC_URL` to
-your HTTPS hostname. This is the same shape as the existing painting-gallery
-Caddy setup; it just needs a supported public port (`443`), not `8097`/`8098`.
+your HTTPS hostname. The frontend already defaults to `:80`, so this mostly just
+adds TLS + the admin route in front of the existing setup.
 
 ## What Cloudflare's free plan buys you here
 

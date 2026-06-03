@@ -15,13 +15,17 @@ your own site.
 
 ```
                      ┌─────────────────────────── host ───────────────────────────┐
-  Browser ──:8098──> │  web (Node/Express)                directus (CMS)            │
+  Browser ───:80───> │  web (Node/Express)                directus (CMS)            │
                      │   • serves the frontend            • admin UI + REST/GraphQL │
                      │   • proxies /cms/* ──────────────> • SQLite + local files    │
-                     │   • /healthz, /app-config.js          (public on :8097)      │
-  Browser ──:8097──> │ ───────────────────────────────────^ (admin, direct)        │
+                     │   • /healthz, /app-config.js          (public on :8055)      │
+  Browser ──:8055──> │ ───────────────────────────────────^ (admin, direct)        │
                      └─────────────────────────────────────────────────────────────┘
 ```
+
+Ports are env-configurable. On a fresh host the frontend defaults to **80** and
+Directus to **8055**. (Override them only where those ports are taken — the live
+`uint8.me` staging uses `8098`/`8097` because something else already owns 80.)
 
 - **web** (`./web`): Express app. Serves the static frontend from `web/public`,
   proxies `/cms/*` to Directus (same-origin, no CORS), exposes `/healthz`, and
@@ -39,15 +43,15 @@ cp .env.example .env
 docker compose up --build
 ```
 
-- Frontend: <http://localhost:8098>
-- Directus admin: <http://localhost:8097/admin>
+- Frontend: <http://localhost:8080>
+- Directus admin: <http://localhost:8055/admin>
 
 A bare Directus has no `Articles` collection yet, so the frontend shows an empty
 state. Seed the demo content (creates the `Articles` collection, grants the
 **Public** policy read on published items, and inserts a few sample articles):
 
 ```bash
-DIRECTUS_URL=http://localhost:8097 \
+DIRECTUS_URL=http://localhost:8055 \
 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD="$(grep DIRECTUS_ADMIN_PASSWORD .env | cut -d= -f2)" \
 node scripts/seed-directus.mjs
 ```
@@ -103,16 +107,19 @@ environment).
 
 ### TLS / CDN with Cloudflare (free)
 
-To put a hostname + free TLS in front, use **Cloudflare Tunnel** — it needs no
-open inbound ports (note: Cloudflare's proxy can't use ports 8097/8098 directly).
-See [docs/cloudflare.md](docs/cloudflare.md). An optional `cloudflared` overlay
-is provided in `docker-compose.cloudflared.yml`.
+To put a hostname + free TLS in front: with the frontend on port 80 you can
+orange-cloud it directly, but the cleanest free path is **Cloudflare Tunnel** —
+no open inbound ports, and it also covers the Directus admin (on :8055, which
+Cloudflare's proxy can't serve directly). See
+[docs/cloudflare.md](docs/cloudflare.md). An optional `cloudflared` overlay is
+provided in `docker-compose.cloudflared.yml`.
 
 ### Configuration (GitHub → Settings → Environments → `staging`)
 
 Stored as **variables** (non-secret) and **secrets**:
 
-**Variables**
+**Variables** (port columns show fresh-host defaults; the live `uint8.me` staging
+overrides `WEB_PORT=8098` / `DIRECTUS_PORT=8097` because 80 is already taken there)
 
 | Name | Example | Used by |
 |---|---|---|
@@ -121,9 +128,9 @@ Stored as **variables** (non-secret) and **secrets**:
 | `SSH_USER` | `simon` | ssh-docker |
 | `SSH_PORT` | `22` | ssh-docker |
 | `DEPLOY_DIR` | `directus-node-starter` | ssh-docker |
-| `DIRECTUS_PORT` | `8097` | both |
-| `WEB_PORT` | `8098` | both |
-| `DIRECTUS_PUBLIC_URL` | `http://uint8.me:8097` | both |
+| `DIRECTUS_PORT` | `8055` (fresh host) | both |
+| `WEB_PORT` | `80` (fresh host) | both |
+| `DIRECTUS_PUBLIC_URL` | `http://your-host:8055` | both |
 | `DIRECTUS_ADMIN_EMAIL` | `admin@example.com` | both |
 | `DIRECTUS_VERSION` | `11` | both |
 | `FLY_WEB_APP` / `FLY_DIRECTUS_APP` / `FLY_REGION` | — | fly |
@@ -145,11 +152,12 @@ Stored as **variables** (non-secret) and **secrets**:
 The same script works locally — export the env and run it:
 
 ```bash
-export DEPLOY_PROVIDER=ssh-docker SSH_HOST=uint8.me SSH_USER=simon \
+export DEPLOY_PROVIDER=ssh-docker SSH_HOST=your-host SSH_USER=ubuntu \
        SSH_KEY="$(cat ~/.ssh/your_deploy_key)" \
        WEB_IMAGE=ghcr.io/<owner>/directus-node-starter/web:staging \
        DIRECTUS_SECRET=... DIRECTUS_ADMIN_PASSWORD=... \
-       DIRECTUS_PUBLIC_URL=http://uint8.me:8097 DIRECTUS_PORT=8097 WEB_PORT=8098
+       DIRECTUS_PUBLIC_URL=http://your-host:8055
+       # ports default to 80 (frontend) / 8055 (directus); set WEB_PORT/DIRECTUS_PORT to override
 ./deploy/deploy.sh
 ```
 

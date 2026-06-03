@@ -10,7 +10,7 @@ services:
     image: directus/directus:${DIRECTUS_VERSION:-11}
     restart: unless-stopped
     ports:
-      - "${DIRECTUS_PORT:-8097}:8055"
+      - "${DIRECTUS_PORT:-8055}:8055"
     environment:
       SECRET: "${DIRECTUS_SECRET:?}"
       ADMIN_EMAIL: "${DIRECTUS_ADMIN_EMAIL:-admin@example.com}"
@@ -18,7 +18,7 @@ services:
       DB_CLIENT: "sqlite3"
       DB_FILENAME: "/directus/database/data.db"
       WEBSOCKETS_ENABLED: "true"
-      PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+      PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8055}"
       CORS_ENABLED: "true"
       CORS_ORIGIN: "true"
     volumes:
@@ -36,11 +36,11 @@ services:
     image: "${WEB_IMAGE:?set WEB_IMAGE to the published web image}"
     restart: unless-stopped
     ports:
-      - "${WEB_PORT:-8098}:8080"
+      - "${WEB_PORT:-80}:8080"
     environment:
       PORT: "8080"
       DIRECTUS_URL: "http://directus:8055"
-      DIRECTUS_PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8097}"
+      DIRECTUS_PUBLIC_URL: "${DIRECTUS_PUBLIC_URL:-http://localhost:8055}"
     depends_on:
       directus:
         condition: service_healthy

@@ -36,8 +36,8 @@ EC2 → Launch instance:
   | Port | Source | Why |
   |------|--------|-----|
   | 22 | your IP (or `0.0.0.0/0` with key-only auth) | SSH + CI deploy |
-  | 8097 | `0.0.0.0/0` | Directus (public) |
-  | 8098 | `0.0.0.0/0` | web / frontend |
+  | 80 | `0.0.0.0/0` | web / frontend (default) |
+  | 8055 | `0.0.0.0/0` | Directus (public, incl. /admin) |
 
   Note: GitHub Actions runners use a wide, changing IP range, so to let CI SSH
   in you either allow 22 from `0.0.0.0/0` (key-only auth makes this acceptable
@@ -90,8 +90,8 @@ In **GitHub → repo → Settings → Environments → `staging`**, update:
 | `SSH_USER` | `ec2-user` (Amazon Linux) or `ubuntu` (Ubuntu) |
 | `SSH_PORT` | `22` |
 | `DEPLOY_DIR` | `directus-node-starter` |
-| `DIRECTUS_PUBLIC_URL` | `http://<elastic-ip>:8097` |
-| `DIRECTUS_PORT` / `WEB_PORT` | `8097` / `8098` |
+| `DIRECTUS_PUBLIC_URL` | `http://<elastic-ip>:8055` |
+| `DIRECTUS_PORT` / `WEB_PORT` | `8055` / `80` (the defaults — omit to use them) |
 
 **Secrets**
 
@@ -106,7 +106,10 @@ CLI equivalent:
 REPO=<owner>/directus-node-starter
 gh variable set SSH_HOST --env staging --repo $REPO --body "<elastic-ip>"
 gh variable set SSH_USER --env staging --repo $REPO --body "ec2-user"
-gh variable set DIRECTUS_PUBLIC_URL --env staging --repo $REPO --body "http://<elastic-ip>:8097"
+gh variable set DIRECTUS_PUBLIC_URL --env staging --repo $REPO --body "http://<elastic-ip>:8055"
+# Fresh EC2 has nothing on :80, so use the default ports:
+gh variable set WEB_PORT      --env staging --repo $REPO --body "80"
+gh variable set DIRECTUS_PORT --env staging --repo $REPO --body "8055"
 gh secret  set SSH_KEY  --env staging --repo $REPO < ./deploy-key   # PEM private key
 ```
 
@@ -131,23 +134,23 @@ pulled from GHCR using `GITHUB_TOKEN`, so it works even for private packages.
 
 Verify:
 
-- Frontend: `http://<elastic-ip>:8098`
-- Directus admin: `http://<elastic-ip>:8097/admin`
+- Frontend: `http://<elastic-ip>` (port 80)
+- Directus admin: `http://<elastic-ip>:8055/admin`
 
 Then seed content (bare Directus starts empty):
 
 ```bash
-DIRECTUS_URL=http://<elastic-ip>:8097 \
+DIRECTUS_URL=http://<elastic-ip>:8055 \
 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=<your-password> \
 node scripts/seed-directus.mjs
 ```
 
 ## Caveats / cost control
 
-- **No HTTPS here.** Ports 8097/8098 are plain HTTP. For anything real, put a
-  reverse proxy (Caddy/Traefik/Nginx) with a domain in front for TLS, and stop
-  publishing 8097/8098 to the world — proxy `/` to the web container and, if you
-  want public admin, `/admin` to Directus.
+- **No HTTPS here.** Port 80 / 8055 are plain HTTP. For anything real, put TLS in
+  front — the easiest free option is Cloudflare ([docs/cloudflare.md](cloudflare.md));
+  the frontend on :80 can be orange-clouded directly, and a Cloudflare Tunnel
+  also covers the Directus admin without opening :8055 to the world.
 - **RAM**: 1 GB + 2 GB swap is enough for the demo but not heavy use. Move to
   `t3.small` (paid) or switch Directus to Postgres/RDS if you outgrow SQLite.
 - **Egress**: free-tier data-transfer-out is capped (15 GB or 100 GB/month
