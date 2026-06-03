@@ -6,10 +6,12 @@ A small, complete, **deployable** template:
 > headless CMS, shipped as two containers, with **provider-swappable CI/CD** and a
 > staging environment.
 
-The example frontend is a painting gallery (Alpine.js), but the interesting part
-is the shape: a Node backend you own sitting in front of Directus, and a deploy
-pipeline that targets a plain Docker host today and Fly.io (or anything else)
-tomorrow by changing one variable.
+The example frontend is a generic **articles** demo (Alpine.js) — a list of
+articles and a reader view — but the interesting part is the shape: a Node
+backend you own sitting in front of Directus, and a deploy pipeline that targets
+a plain Docker host today and Fly.io (or anything else) tomorrow by changing one
+variable. Swap the `Articles` collection for your own content model and you have
+your own site.
 
 ```
                      ┌─────────────────────────── host ───────────────────────────┐
@@ -40,12 +42,35 @@ docker compose up --build
 - Frontend: <http://localhost:8098>
 - Directus admin: <http://localhost:8097/admin>
 
-A bare Directus has no `Artworks` collection yet, so the gallery loads empty.
-Create the content model in the admin (Settings → Data Model → create collection
-`Artworks` with fields `title`, `image`, `description`, `sold`, `portrait`,
-`sort`, `published`), then grant the **Public** policy read on `Artworks` and
-`directus_files`. The frontend expects `GET /cms/items/Artworks` and images at
-`/cms/assets/{id}?key=thumbnail-500`.
+A bare Directus has no `Articles` collection yet, so the frontend shows an empty
+state. Seed the demo content (creates the `Articles` collection, grants the
+**Public** policy read on published items, and inserts a few sample articles):
+
+```bash
+DIRECTUS_URL=http://localhost:8097 \
+ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD="$(grep DIRECTUS_ADMIN_PASSWORD .env | cut -d= -f2)" \
+node scripts/seed-directus.mjs
+```
+
+The script is idempotent — re-running it skips anything that already exists.
+
+### The content model
+
+The frontend reads `GET /cms/items/Articles` (newest first) and renders a card
+grid + a reader view. The `Articles` collection (created by the seed) has:
+
+| Field | Type | Purpose |
+|---|---|---|
+| `title` | string (required) | headline |
+| `summary` | text | card blurb |
+| `body` | rich-text HTML | article content (rendered in the reader) |
+| `author` | string | byline |
+| `published_date` | timestamp | sort + display |
+| `status` | string (`published`/`draft`/`archived`) | **Public read is filtered to `published`** |
+| `slug`, `sort` | string / integer | URL hint, manual ordering |
+
+The collection name is configurable via the `CMS_COLLECTION` env var on the web
+container (default `Articles`); the frontend picks it up from `/app-config.js`.
 
 ## Deploy (CI/CD)
 
@@ -120,7 +145,8 @@ export DEPLOY_PROVIDER=ssh-docker SSH_HOST=uint8.me SSH_USER=simon \
 ```
 web/                     Node backend + frontend (public/)
   server.js              express: static + /cms proxy + /healthz + /app-config.js
-  public/index.html      the gallery frontend
+  public/index.html      the articles frontend (list + reader)
+scripts/seed-directus.mjs  idempotent: creates Articles collection + perms + samples
 docker-compose.yml       local stack (builds web)
 docker-compose.deploy.yml stack used on the host (pulls web image)
 deploy/

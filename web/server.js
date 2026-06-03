@@ -20,6 +20,8 @@ const DIRECTUS_URL = process.env.DIRECTUS_URL || 'http://directus:8055';
 // Public URL of Directus (for admin deep-links shown in the browser). Empty
 // string => frontend falls back to the same-origin /cms proxy.
 const DIRECTUS_PUBLIC_URL = process.env.DIRECTUS_PUBLIC_URL || '';
+// Directus collection the frontend reads/renders.
+const CMS_COLLECTION = process.env.CMS_COLLECTION || 'Articles';
 
 const app = express();
 app.disable('x-powered-by');
@@ -31,7 +33,11 @@ app.get('/healthz', (_req, res) => res.json({ ok: true, directus: DIRECTUS_URL }
 app.get('/app-config.js', (_req, res) => {
   res.type('application/javascript').send(
     'window.APP_CONFIG=' +
-      JSON.stringify({ cmsBase: '/cms', cmsAdminUrl: DIRECTUS_PUBLIC_URL }) +
+      JSON.stringify({
+        cmsBase: '/cms',
+        cmsAdminUrl: DIRECTUS_PUBLIC_URL,
+        cmsCollection: CMS_COLLECTION,
+      }) +
       ';'
   );
 });
