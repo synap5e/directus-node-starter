@@ -163,5 +163,9 @@ deploy/
   Directus demo default is not safe for a public instance.
 - **Persistence**: Directus state lives in named volumes
   (`directus-database`, `directus-uploads`, `directus-extensions`). Back these up.
+  All content (the `Articles` collection, permissions, sample data) lives there —
+  if you remove the volumes you start from a bare Directus again, so re-run
+  `node scripts/seed-directus.mjs` to recreate the collection + permissions and
+  repopulate the demo articles.
 - **Scaling out**: swap `DB_CLIENT`/storage env to Postgres + S3 when SQLite +
   local files isn't enough.
