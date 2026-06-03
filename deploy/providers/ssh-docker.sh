@@ -97,7 +97,12 @@ if [[ -n "${GHCR_TOKEN:-}" && -n "${GHCR_USER:-}" ]]; then
 fi
 
 echo "==> Pull + up"
-remote "cd '$DEPLOY_DIR' && $COMPOSE pull && $COMPOSE up -d --remove-orphans && docker image prune -f"
+# Pull is best-effort (registries blip — e.g. Docker Hub timeouts). Retry a few
+# times, then bring the stack up regardless: `up -d` re-pulls anything missing,
+# and already-pulled images (the freshly-published web tag) are used as-is.
+remote "cd '$DEPLOY_DIR' && \
+  for n in 1 2 3; do $COMPOSE pull && break || { echo \"pull attempt \$n failed, retrying\"; sleep 5; }; done; \
+  $COMPOSE up -d --remove-orphans && docker image prune -f"
 
 if [[ "$STACK_CADDY" == "true" ]]; then
   echo "==> Deployed. frontend=https://${APP_DOMAIN}  directus=https://${CMS_DOMAIN}/admin"
