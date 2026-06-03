@@ -97,6 +97,14 @@ no-ports + shared-network approach avoids exposing anything publicly.)
 
 ## Notes
 
+- **`docker network connect` is not persistent.** If you recreate your proxy
+  container it loses the connection to `directus-node-starter_default`. Make it
+  durable by declaring the network in the proxy's own compose
+  (`networks: [directus-node-starter_default]` with that network marked
+  `external: true`), or re-run the `connect` after recreating the proxy.
+- Redeploying the app stack recreates the `web`/`directus` containers (new IPs);
+  Caddy/Nginx proxying **by container name** re-resolves automatically. Proxying
+  by IP would break — always use the names.
 - Directus behind TLS uses secure cookies (`COOKIE_SECURE=true` by default in the
   deploy base). If you front it with plain HTTP, set `COOKIE_SECURE=false`.
 - Whichever proxy terminates TLS should forward `X-Forwarded-Proto` (Caddy and
