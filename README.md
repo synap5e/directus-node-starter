@@ -101,6 +101,13 @@ including an AWS EC2 instance. See
 free-tier walkthrough (launch EC2, install Docker + swap, repoint the `staging`
 environment).
 
+### TLS / CDN with Cloudflare (free)
+
+To put a hostname + free TLS in front, use **Cloudflare Tunnel** — it needs no
+open inbound ports (note: Cloudflare's proxy can't use ports 8097/8098 directly).
+See [docs/cloudflare.md](docs/cloudflare.md). An optional `cloudflared` overlay
+is provided in `docker-compose.cloudflared.yml`.
+
 ### Configuration (GitHub → Settings → Environments → `staging`)
 
 Stored as **variables** (non-secret) and **secrets**:

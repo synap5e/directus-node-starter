@@ -1,0 +1,25 @@
+# Optional Cloudflare Tunnel sidecar. Compose overlay — use it ON TOP of the
+# main stack so cloudflared joins the same network and can reach the `web` and
+# `directus` services by name:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
+#   # or on the deployed host:
+#   docker compose -f docker-compose.yml -f docker-compose.cloudflared.yml up -d
+#
+# Set CLOUDFLARE_TUNNEL_TOKEN in .env (from the Zero Trust dashboard). The
+# tunnel's public hostnames (ingress) are configured in that dashboard and point
+# at http://web:8080 and http://directus:8055. No inbound ports required.
+#
+# See docs/cloudflare.md for the full walkthrough.
+name: directus-node-starter
+
+services:
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: "${CLOUDFLARE_TUNNEL_TOKEN:?set CLOUDFLARE_TUNNEL_TOKEN}"
+    depends_on:
+      - web
+      - directus
