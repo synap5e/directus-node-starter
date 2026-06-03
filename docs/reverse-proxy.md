@@ -36,21 +36,28 @@ For local HTTPS, use `*.localhost` names (`articles.localhost` / `cms.localhost`
 ## Mode 2 — host already runs a proxy: point it at the containers
 
 If the host already has Caddy/Traefik/Nginx on 80/443, don't run a second proxy.
-Deploy the base alone (no `STACK_CADDY`), then route your existing proxy to the
-two containers over the stack's Docker network.
+Deploy the base **plus the proxy-net overlay**, which attaches `web`/`directus` to
+the external network your proxy is already on — so the proxy resolves them by
+container name, and the membership is reapplied on every deploy (no fragile
+manual `docker network connect`).
 
-The proxy container must be **on the `directus-node-starter_default` network** so
-it can resolve the service names:
+Set `PROXY_NETWORK` to that network's name (CI: a `staging` variable; the
+ssh-docker provider adds the overlay automatically when it's set and
+`STACK_CADDY` isn't `true`). Manually:
 
 ```bash
-docker network connect directus-node-starter_default <your-proxy-container>
+PROXY_NETWORK=internal docker compose \
+  -f docker-compose.yml -f docker-compose.proxy-net.yml up -d
 ```
+
+Find your proxy's network with `docker inspect <proxy> --format '{{json .NetworkSettings.Networks}}'`.
 
 ### Example: integrate with an existing Caddy (this is how `uint8.me` runs)
 
-Add two site blocks to the existing Caddyfile and reload. Here the host Caddy
-already does TLS via the Cloudflare DNS challenge (a `*.uint8.me` wildcard), so
-the subdomains get certificates automatically:
+`uint8.me`'s Caddy is already on a shared network called `internal`, so the stack
+joins it via `PROXY_NETWORK=internal`. Then add two site blocks to the existing
+Caddyfile and reload. The host Caddy does TLS via the Cloudflare DNS challenge
+(a `*.uint8.me` wildcard), so the subdomains get certificates automatically:
 
 ```caddy
 articles.uint8.me {
@@ -69,14 +76,15 @@ cms.uint8.me {
 ```
 
 ```bash
-docker network connect directus-node-starter_default caddy   # one time
 docker exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile
 docker exec caddy caddy reload   --config /etc/caddy/Caddyfile --adapter caddyfile
 ```
 
 (`directus-node-starter-web-1` / `-directus-1` are the Compose container names;
-they're stable across redeploys. Set `DIRECTUS_PUBLIC_URL=https://cms.uint8.me`
-so admin deep-links and Directus's `PUBLIC_URL` are correct.)
+they're stable across redeploys. The stack joins `internal` via the proxy-net
+overlay, so no `docker network connect` is needed on the Caddy side. Set
+`DIRECTUS_PUBLIC_URL=https://cms.uint8.me` so admin deep-links and Directus's
+`PUBLIC_URL` are correct.)
 
 ### Example: Nginx
 
@@ -91,17 +99,18 @@ server {
 }
 ```
 
-(Nginx in a container needs the same `docker network connect`; on the host with
-ports published you'd instead `proxy_pass` to `127.0.0.1:<port>` — but the
-no-ports + shared-network approach avoids exposing anything publicly.)
+(Nginx in a container reaches the services the same way — via the shared external
+network from the proxy-net overlay. On the host with ports published you'd instead
+`proxy_pass` to `127.0.0.1:<port>`, but the no-ports + shared-network approach
+avoids exposing anything publicly.)
 
 ## Notes
 
-- **`docker network connect` is not persistent.** If you recreate your proxy
-  container it loses the connection to `directus-node-starter_default`. Make it
-  durable by declaring the network in the proxy's own compose
-  (`networks: [directus-node-starter_default]` with that network marked
-  `external: true`), or re-run the `connect` after recreating the proxy.
+- **Connectivity is declared, not hand-wired.** The proxy-net overlay attaches
+  `web`/`directus` to your proxy's existing network on every deploy, so there's
+  no `docker network connect` to remember or to re-run when the proxy container is
+  recreated. (If you instead connected the proxy to the stack's own network by
+  hand, that connection would be lost when the proxy is recreated.)
 - Redeploying the app stack recreates the `web`/`directus` containers (new IPs);
   Caddy/Nginx proxying **by container name** re-resolves automatically. Proxying
   by IP would break — always use the names.

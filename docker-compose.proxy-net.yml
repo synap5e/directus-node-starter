@@ -1,0 +1,29 @@
+# Overlay for "host already runs a reverse proxy" mode: attach web + directus to
+# an EXISTING external Docker network that the proxy is already on, so it can
+# reach them by container name. This is the durable alternative to running
+# `docker network connect` against the proxy by hand (which doesn't survive the
+# proxy being recreated) — the membership is declared here and reapplied on every
+# deploy.
+#
+#   PROXY_NETWORK = the external network your proxy is attached to (e.g. on
+#   uint8.me the host Caddy is on a network named `internal`).
+#
+# Used with the deploy base:
+#   PROXY_NETWORK=internal docker compose \
+#     -f docker-compose.yml -f docker-compose.proxy-net.yml up -d
+#
+# The ssh-docker provider adds this automatically when PROXY_NETWORK is set and
+# STACK_CADDY is not true. Point your proxy at directus-node-starter-web-1:8080
+# and directus-node-starter-directus-1:8055.
+name: directus-node-starter
+
+networks:
+  proxynet:
+    external: true
+    name: ${PROXY_NETWORK:?set PROXY_NETWORK to the proxy's external network}
+
+services:
+  web:
+    networks: [default, proxynet]
+  directus:
+    networks: [default, proxynet]

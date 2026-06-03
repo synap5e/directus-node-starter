@@ -16,14 +16,15 @@
 #   DIRECTUS_PUBLIC_URL     public URL of Directus (e.g. https://cms.example.com)
 #   GHCR_USER / GHCR_TOKEN  -> docker login on the host before pull (for private images)
 #
-# Reverse proxy:
-#   STACK_CADDY=true        also deploy a Caddy on 80/443 (vhost + auto-HTTPS) for
-#                           a FRESH host. Requires APP_DOMAIN + CMS_DOMAIN.
+# Reverse proxy (pick one):
+#   STACK_CADDY=true        deploy a Caddy on 80/443 (vhost + auto-HTTPS) for a
+#                           FRESH host. Requires APP_DOMAIN + CMS_DOMAIN.
 #     APP_DOMAIN, CMS_DOMAIN, ACME_EMAIL, HTTP_PORT=80, HTTPS_PORT=443
-#   STACK_CADDY unset/false the host already has a reverse proxy; this deploys the
-#                           web/directus containers with no published ports and
-#                           you point your existing proxy at them over the
-#                           directus-node-starter_default network.
+#   PROXY_NETWORK=<name>    the host already runs a proxy: attach web/directus to
+#                           that existing external network so the proxy reaches
+#                           them by container name (durable, see proxy-net overlay).
+#   (neither set)           deploy with no published ports / no extra network; wire
+#                           up connectivity yourself.
 set -euo pipefail
 
 : "${SSH_HOST:?SSH_HOST required}"
@@ -66,6 +67,7 @@ EOF
 
 # Compose invocation differs by proxy mode.
 COMPOSE="docker compose"
+OVERLAY_FILE=""
 if [[ "$STACK_CADDY" == "true" ]]; then
   : "${APP_DOMAIN:?APP_DOMAIN required when STACK_CADDY=true}"
   : "${CMS_DOMAIN:?CMS_DOMAIN required when STACK_CADDY=true}"
@@ -76,7 +78,12 @@ ACME_EMAIL=${ACME_EMAIL:-}
 HTTP_PORT=${HTTP_PORT:-80}
 HTTPS_PORT=${HTTPS_PORT:-443}
 EOF
-  COMPOSE="docker compose -f docker-compose.yml -f docker-compose.caddy.yml"
+  OVERLAY_FILE="docker-compose.caddy.yml"
+  COMPOSE="docker compose -f docker-compose.yml -f $OVERLAY_FILE"
+elif [[ -n "${PROXY_NETWORK:-}" ]]; then
+  echo "PROXY_NETWORK=${PROXY_NETWORK}" >> "$ENVFILE"
+  OVERLAY_FILE="docker-compose.proxy-net.yml"
+  COMPOSE="docker compose -f docker-compose.yml -f $OVERLAY_FILE"
 fi
 
 echo "==> Target: $SSH_USER@$SSH_HOST:$SSH_PORT  dir=$DEPLOY_DIR  stack_caddy=$STACK_CADDY"
@@ -85,8 +92,10 @@ remote "mkdir -p '$DEPLOY_DIR'"
 echo "==> Copying compose file(s) + env"
 copy "$HERE/docker-compose.deploy.yml" "$DEPLOY_DIR/docker-compose.yml"
 copy "$ENVFILE" "$DEPLOY_DIR/.env"
+if [[ -n "$OVERLAY_FILE" ]]; then
+  copy "$HERE/$OVERLAY_FILE" "$DEPLOY_DIR/$OVERLAY_FILE"
+fi
 if [[ "$STACK_CADDY" == "true" ]]; then
-  copy "$HERE/docker-compose.caddy.yml" "$DEPLOY_DIR/docker-compose.caddy.yml"
   copy "$HERE/Caddyfile" "$DEPLOY_DIR/Caddyfile"
 fi
 
@@ -106,7 +115,9 @@ remote "cd '$DEPLOY_DIR' && \
 
 if [[ "$STACK_CADDY" == "true" ]]; then
   echo "==> Deployed. frontend=https://${APP_DOMAIN}  directus=https://${CMS_DOMAIN}/admin"
+elif [[ -n "${PROXY_NETWORK:-}" ]]; then
+  echo "==> Deployed (no published ports), joined to network '${PROXY_NETWORK}'."
+  echo "    Your proxy can reach directus-node-starter-web-1:8080 / -directus-1:8055."
 else
-  echo "==> Deployed (no published ports). Point your reverse proxy at the"
-  echo "    web (:8080) and directus (:8055) containers on directus-node-starter_default."
+  echo "==> Deployed (no published ports, no extra network)."
 fi

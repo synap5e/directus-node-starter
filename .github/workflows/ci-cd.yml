@@ -87,6 +87,8 @@ jobs:
           APP_DOMAIN: ${{ vars.APP_DOMAIN }}
           CMS_DOMAIN: ${{ vars.CMS_DOMAIN }}
           ACME_EMAIL: ${{ vars.ACME_EMAIL }}
+          # Existing-proxy mode: attach web/directus to this external network.
+          PROXY_NETWORK: ${{ vars.PROXY_NETWORK }}
 
           # --- fly provider (unused unless DEPLOY_PROVIDER=fly) ---
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

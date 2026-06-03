@@ -123,12 +123,13 @@ published ports** — something must sit in front and route by hostname.
    HTTPS for both hostnames. Done.
 
 2. **Host already has a proxy — point it at the containers.** Leave
-   `STACK_CADDY` unset. Deploy puts `web` (:8080) and `directus` (:8055) on the
-   `directus-node-starter_default` network with no public ports; add two vhosts to
-   your existing proxy. This is how `uint8.me` runs — its existing Caddy proxies
-   `articles.uint8.me` → `web:8080` and `cms.uint8.me` → `directus:8055`
-   (it's joined to the stack network with `docker network connect`). Example
-   Caddy blocks are in [docs/reverse-proxy.md](docs/reverse-proxy.md).
+   `STACK_CADDY` unset and set `PROXY_NETWORK` to the network your proxy is on.
+   Deploy attaches `web` (:8080) / `directus` (:8055) to that external network
+   (via `docker-compose.proxy-net.yml`) with no public ports; add two vhosts to
+   your existing proxy. This is how `uint8.me` runs — its Caddy is on the shared
+   `internal` network and proxies `articles.uint8.me` → `web:8080`,
+   `cms.uint8.me` → `directus:8055`. Example Caddy blocks are in
+   [docs/reverse-proxy.md](docs/reverse-proxy.md).
 
 For free TLS via Cloudflare (orange-cloud or Tunnel) instead of/around Caddy, see
 [docs/cloudflare.md](docs/cloudflare.md).
@@ -194,6 +195,7 @@ scripts/seed-directus.mjs  idempotent: creates Articles collection + perms + sam
 docker-compose.yml       local stack (builds web, publishes 8080/8055)
 docker-compose.deploy.yml deploy base (pulls web image, no published ports)
 docker-compose.caddy.yml  fresh-host overlay: adds Caddy (vhost + auto-HTTPS)
+docker-compose.proxy-net.yml existing-proxy overlay: join PROXY_NETWORK (durable)
 Caddyfile                 vhost routes for the stack Caddy (APP_DOMAIN/CMS_DOMAIN)
 deploy/
   deploy.sh              provider dispatcher (DEPLOY_PROVIDER)
