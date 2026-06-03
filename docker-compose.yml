@@ -6,9 +6,9 @@
 # Frontend:        http://localhost:8080
 # Directus admin:  http://localhost:8055/admin   (log in with ADMIN_EMAIL/PASSWORD)
 #
-# Local dev defaults to 8080 so you don't need privileged port 80. The deploy
-# compose (docker-compose.deploy.yml) defaults the frontend to port 80 for a
-# fresh host; override WEB_PORT/DIRECTUS_PORT anywhere those ports are taken.
+# This local stack publishes ports for convenience. The DEPLOY stack publishes no
+# ports — a reverse proxy routes by hostname (docker-compose.deploy.yml +
+# docker-compose.caddy.yml, or your own proxy). See docs/reverse-proxy.md.
 #
 # The deployed variant is docker-compose.deploy.yml (pulls the prebuilt web image
 # from GHCR instead of building locally). Keep the two in sync.

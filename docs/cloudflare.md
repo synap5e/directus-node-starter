@@ -1,28 +1,24 @@
 # Putting Cloudflare (free) in front
 
 Cloudflare's free plan gives you DNS, a global CDN/cache, DDoS protection, and
-free TLS. There are two ways to use it here — read the gotcha first.
-
-## The port gotcha
-
-Cloudflare's **proxied (orange-cloud) HTTP/HTTPS only works on a fixed set of
-ports**. The supported ones are:
-
-- HTTP: `80, 8080, 8880, 2052, 2082, 2086, 2095`
-- HTTPS: `443, 2053, 2083, 2087, 2096, 8443`
-
-The **frontend on port 80** (the default on a fresh host) is on that list, so you
-*can* orange-cloud it directly. The catch is the **Directus admin on `:8055`**,
-which is *not* a supported proxied port — so to put the admin behind Cloudflare
-you need a Tunnel or a reverse proxy. (If you deployed on non-standard ports like
-`8097`/`8098`, neither is supported and this applies to both services.)
+free TLS. The stack already terminates TLS with its own Caddy on 80/443 (see
+[reverse-proxy.md](reverse-proxy.md)), so Cloudflare is **optional** — reach for
+it when you want a CDN/WAF in front, or a Tunnel so you can close all inbound
+ports. Three ways:
 
 | Option | What it needs | Best when |
 |---|---|---|
-| **A. Cloudflare Tunnel** (recommended) | a `cloudflared` container; **no open inbound ports** | you want free TLS for *both* frontend and admin with the least fuss and the tightest firewall |
-| **B. Orange-cloud + host reverse proxy** | a proxy (Caddy/Nginx/Traefik) on `80/443` on the host | you already run a reverse proxy / want standard ports |
+| **A. Cloudflare Tunnel** | a `cloudflared` container; **no open inbound ports**, bypasses Caddy | you want the tightest firewall (no public 80/443 at all) |
+| **B. Orange-cloud in front of the stack Caddy** | DNS proxied (orange) for both vhosts, SSL mode *Full (strict)* | you run the stack Caddy and just want CDN/WAF + Cloudflare's edge |
+| **C. Orange-cloud + your own reverse proxy** | an existing proxy on `80/443` | the host already runs a proxy |
 
-Tunnel is the cleaner free path and is what the rest of this doc covers.
+Tunnel is the cleanest if you want zero open ports, and is what the rest of this
+doc covers in detail.
+
+> Port note: Cloudflare's orange-cloud proxy only works on standard-ish ports
+> (HTTP `80, 8080, …`; HTTPS `443, 2053, …`). Because the stack now serves both
+> vhosts on **80/443**, that's a non-issue — but it's why you can't point an
+> orange-cloud record at an arbitrary high port. A Tunnel sidesteps it entirely.
 
 ## Option A — Cloudflare Tunnel
 

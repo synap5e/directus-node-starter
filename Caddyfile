@@ -1,0 +1,22 @@
+# Stack reverse proxy. Routes by hostname (vhost) to the two services and gets
+# automatic HTTPS. Domains are config-driven via env (set in .env):
+#
+#   APP_DOMAIN  -> the frontend            (e.g. articles.example.com)
+#   CMS_DOMAIN  -> Directus admin + API    (e.g. cms.example.com)
+#   ACME_EMAIL  -> optional, for Let's Encrypt notifications
+#
+# For local use, set APP_DOMAIN/CMS_DOMAIN to *.localhost names (e.g.
+# articles.localhost / cms.localhost) and Caddy serves them over HTTPS with its
+# own local CA — no public DNS needed.
+
+{
+	email {$ACME_EMAIL}
+}
+
+{$APP_DOMAIN} {
+	reverse_proxy web:8080
+}
+
+{$CMS_DOMAIN} {
+	reverse_proxy directus:8055
+}

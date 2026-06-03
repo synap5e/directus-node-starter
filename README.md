@@ -14,26 +14,34 @@ variable. Swap the `Articles` collection for your own content model and you have
 your own site.
 
 ```
-                     ┌─────────────────────────── host ───────────────────────────┐
-  Browser ───:80───> │  web (Node/Express)                directus (CMS)            │
-                     │   • serves the frontend            • admin UI + REST/GraphQL │
-                     │   • proxies /cms/* ──────────────> • SQLite + local files    │
-                     │   • /healthz, /app-config.js          (public on :8055)      │
-  Browser ──:8055──> │ ───────────────────────────────────^ (admin, direct)        │
-                     └─────────────────────────────────────────────────────────────┘
+                       ┌───────────────────────── host ─────────────────────────┐
+                       │                                                         │
+  https://APP_DOMAIN ─►│ caddy ─► web (Node/Express)        directus (CMS)       │
+  https://CMS_DOMAIN ─►│ :80/:443  • serves the frontend    • admin UI + API     │
+        (auto-HTTPS,   │  └──────► • proxies /cms/* ──────► • SQLite + files     │
+         vhost by Host)│  └─────────────────────────────►^ (admin, CMS_DOMAIN)  │
+                       └─────────────────────────────────────────────────────────┘
 ```
 
-Ports are env-configurable. On a fresh host the frontend defaults to **80** and
-Directus to **8055**. (Override them only where those ports are taken — the live
-`uint8.me` staging uses `8098`/`8097` because something else already owns 80.)
+A single **Caddy** is the entry point: it terminates TLS (automatic HTTPS) and
+routes by hostname — `APP_DOMAIN` → the frontend, `CMS_DOMAIN` → Directus. The
+app containers publish **no** host ports; no port juggling. Two ways to get a
+proxy in front (see [Deploy](#deploy-cicd)):
+
+- **Fresh host** → the stack's own Caddy (`docker-compose.caddy.yml`), on 80/443.
+- **Host that already runs a proxy** (e.g. `uint8.me`'s Caddy) → point it at the
+  `web` / `directus` containers; don't run a second proxy.
 
 - **web** (`./web`): Express app. Serves the static frontend from `web/public`,
   proxies `/cms/*` to Directus (same-origin, no CORS), exposes `/healthz`, and
   injects runtime config at `/app-config.js`. This is the seam to grow real
   backend logic (auth, entitlements, signed media) for gated content.
-- **directus**: official image, public-facing. The initial admin is created from
-  env (`DIRECTUS_ADMIN_EMAIL` / `DIRECTUS_ADMIN_PASSWORD`) on first boot. Public
-  read permissions are the trust boundary for public content.
+- **directus**: official image, reached via `CMS_DOMAIN` through the proxy. The
+  initial admin is created from env (`DIRECTUS_ADMIN_EMAIL` /
+  `DIRECTUS_ADMIN_PASSWORD`) on first boot. Public read permissions are the trust
+  boundary for public content.
+- **caddy** (deploy only): single TLS entry + vhost router. Local dev skips it and
+  just publishes ports 8080/8055.
 
 ## Run it locally
 
@@ -102,24 +110,34 @@ list its required env at the top of the file.
 Any Docker + SSH host works with the default `ssh-docker` provider unchanged —
 including an AWS EC2 instance. See
 [docs/deploy-aws-free-tier.md](docs/deploy-aws-free-tier.md) for a step-by-step
-free-tier walkthrough (launch EC2, install Docker + swap, repoint the `staging`
-environment).
+free-tier walkthrough.
 
-### TLS / CDN with Cloudflare (free)
+### Reverse proxy: two modes
 
-To put a hostname + free TLS in front: with the frontend on port 80 you can
-orange-cloud it directly, but the cleanest free path is **Cloudflare Tunnel** —
-no open inbound ports, and it also covers the Directus admin (on :8055, which
-Cloudflare's proxy can't serve directly). See
-[docs/cloudflare.md](docs/cloudflare.md). An optional `cloudflared` overlay is
-provided in `docker-compose.cloudflared.yml`.
+The deploy base (`docker-compose.deploy.yml`) runs `web` + `directus` with **no
+published ports** — something must sit in front and route by hostname.
+
+1. **Fresh host — let the stack run Caddy.** Set `STACK_CADDY=true` plus
+   `APP_DOMAIN` / `CMS_DOMAIN` (and DNS for both → the host, ports 80/443 open).
+   The provider also deploys `docker-compose.caddy.yml`, and Caddy gets automatic
+   HTTPS for both hostnames. Done.
+
+2. **Host already has a proxy — point it at the containers.** Leave
+   `STACK_CADDY` unset. Deploy puts `web` (:8080) and `directus` (:8055) on the
+   `directus-node-starter_default` network with no public ports; add two vhosts to
+   your existing proxy. This is how `uint8.me` runs — its existing Caddy proxies
+   `articles.uint8.me` → `web:8080` and `cms.uint8.me` → `directus:8055`
+   (it's joined to the stack network with `docker network connect`). Example
+   Caddy blocks are in [docs/reverse-proxy.md](docs/reverse-proxy.md).
+
+For free TLS via Cloudflare (orange-cloud or Tunnel) instead of/around Caddy, see
+[docs/cloudflare.md](docs/cloudflare.md).
 
 ### Configuration (GitHub → Settings → Environments → `staging`)
 
 Stored as **variables** (non-secret) and **secrets**:
 
-**Variables** (port columns show fresh-host defaults; the live `uint8.me` staging
-overrides `WEB_PORT=8098` / `DIRECTUS_PORT=8097` because 80 is already taken there)
+**Variables**
 
 | Name | Example | Used by |
 |---|---|---|
@@ -128,11 +146,14 @@ overrides `WEB_PORT=8098` / `DIRECTUS_PORT=8097` because 80 is already taken the
 | `SSH_USER` | `simon` | ssh-docker |
 | `SSH_PORT` | `22` | ssh-docker |
 | `DEPLOY_DIR` | `directus-node-starter` | ssh-docker |
-| `DIRECTUS_PORT` | `8055` (fresh host) | both |
-| `WEB_PORT` | `80` (fresh host) | both |
-| `DIRECTUS_PUBLIC_URL` | `http://your-host:8055` | both |
+| `STACK_CADDY` | `true` (fresh host) / unset (existing proxy) | ssh-docker |
+| `APP_DOMAIN` | `articles.example.com` | caddy mode |
+| `CMS_DOMAIN` | `cms.example.com` | caddy mode |
+| `ACME_EMAIL` | `you@example.com` | caddy mode (optional) |
+| `DIRECTUS_PUBLIC_URL` | `https://cms.example.com` | both |
 | `DIRECTUS_ADMIN_EMAIL` | `admin@example.com` | both |
 | `DIRECTUS_VERSION` | `11` | both |
+| `SMOKE_URL` | `https://articles.example.com/healthz` | post-deploy check |
 | `FLY_WEB_APP` / `FLY_DIRECTUS_APP` / `FLY_REGION` | — | fly |
 
 **Secrets**
@@ -152,13 +173,15 @@ overrides `WEB_PORT=8098` / `DIRECTUS_PORT=8097` because 80 is already taken the
 The same script works locally — export the env and run it:
 
 ```bash
+# Fresh host with the stack's own Caddy (vhost + auto-HTTPS):
 export DEPLOY_PROVIDER=ssh-docker SSH_HOST=your-host SSH_USER=ubuntu \
        SSH_KEY="$(cat ~/.ssh/your_deploy_key)" \
        WEB_IMAGE=ghcr.io/<owner>/directus-node-starter/web:staging \
        DIRECTUS_SECRET=... DIRECTUS_ADMIN_PASSWORD=... \
-       DIRECTUS_PUBLIC_URL=http://your-host:8055
-       # ports default to 80 (frontend) / 8055 (directus); set WEB_PORT/DIRECTUS_PORT to override
+       STACK_CADDY=true APP_DOMAIN=articles.example.com CMS_DOMAIN=cms.example.com \
+       DIRECTUS_PUBLIC_URL=https://cms.example.com
 ./deploy/deploy.sh
+# (omit STACK_CADDY/APP_DOMAIN/CMS_DOMAIN to deploy behind a proxy you already run)
 ```
 
 ## Layout
@@ -168,12 +191,15 @@ web/                     Node backend + frontend (public/)
   server.js              express: static + /cms proxy + /healthz + /app-config.js
   public/index.html      the articles frontend (list + reader)
 scripts/seed-directus.mjs  idempotent: creates Articles collection + perms + samples
-docker-compose.yml       local stack (builds web)
-docker-compose.deploy.yml stack used on the host (pulls web image)
+docker-compose.yml       local stack (builds web, publishes 8080/8055)
+docker-compose.deploy.yml deploy base (pulls web image, no published ports)
+docker-compose.caddy.yml  fresh-host overlay: adds Caddy (vhost + auto-HTTPS)
+Caddyfile                 vhost routes for the stack Caddy (APP_DOMAIN/CMS_DOMAIN)
 deploy/
   deploy.sh              provider dispatcher (DEPLOY_PROVIDER)
-  providers/ssh-docker.sh
+  providers/ssh-docker.sh   STACK_CADDY toggles the Caddy overlay
   providers/fly.sh
+docs/reverse-proxy.md    the two proxy modes + existing-Caddy integration
 .github/workflows/ci-cd.yml
 ```
 

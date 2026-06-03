@@ -1,0 +1,36 @@
+# Optional reverse-proxy overlay for a FRESH host (one that doesn't already run a
+# proxy on 80/443). Adds a Caddy that terminates TLS and routes by hostname to
+# the web and directus containers. Use it on top of the deploy base:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.caddy.yml up -d
+#
+# Requires APP_DOMAIN, CMS_DOMAIN (and optionally ACME_EMAIL) in .env, and DNS
+# for both names pointing at the host with ports 80/443 open. The ssh-docker
+# provider wires this up automatically when STACK_CADDY=true.
+#
+# If your host ALREADY has a reverse proxy (like uint8.me's Caddy), do NOT use
+# this overlay — point that proxy at the web/directus containers instead.
+name: directus-node-starter
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    environment:
+      APP_DOMAIN: "${APP_DOMAIN:?set APP_DOMAIN for the Caddy overlay}"
+      CMS_DOMAIN: "${CMS_DOMAIN:?set CMS_DOMAIN for the Caddy overlay}"
+      ACME_EMAIL: "${ACME_EMAIL:-}"
+    depends_on:
+      - web
+      - directus
+
+volumes:
+  caddy-data:
+  caddy-config:

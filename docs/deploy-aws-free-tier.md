@@ -36,12 +36,17 @@ EC2 → Launch instance:
   | Port | Source | Why |
   |------|--------|-----|
   | 22 | your IP (or `0.0.0.0/0` with key-only auth) | SSH + CI deploy |
-  | 80 | `0.0.0.0/0` | web / frontend (default) |
-  | 8055 | `0.0.0.0/0` | Directus (public, incl. /admin) |
+  | 80 | `0.0.0.0/0` | HTTP + ACME (Caddy redirects to HTTPS) |
+  | 443 | `0.0.0.0/0` | HTTPS (Caddy serves both vhosts) |
 
-  Note: GitHub Actions runners use a wide, changing IP range, so to let CI SSH
-  in you either allow 22 from `0.0.0.0/0` (key-only auth makes this acceptable
+  The stack runs its own Caddy (vhost + automatic HTTPS) on 80/443 — no per-service
+  ports. Note: GitHub Actions runners use a wide, changing IP range, so to let CI
+  SSH in you either allow 22 from `0.0.0.0/0` (key-only auth makes this acceptable
   for a demo) or self-host a runner. Don't enable password SSH.
+
+- **DNS**: point two records at the instance (or its Elastic IP) — e.g.
+  `articles.example.com` and `cms.example.com`. Caddy needs them resolving + ports
+  80/443 reachable to issue Let's Encrypt certs.
 
 **Elastic IP**: allocate one and associate it with the instance so the public
 address survives stop/start. It's free *while attached to a running instance*
@@ -90,8 +95,11 @@ In **GitHub → repo → Settings → Environments → `staging`**, update:
 | `SSH_USER` | `ec2-user` (Amazon Linux) or `ubuntu` (Ubuntu) |
 | `SSH_PORT` | `22` |
 | `DEPLOY_DIR` | `directus-node-starter` |
-| `DIRECTUS_PUBLIC_URL` | `http://<elastic-ip>:8055` |
-| `DIRECTUS_PORT` / `WEB_PORT` | `8055` / `80` (the defaults — omit to use them) |
+| `STACK_CADDY` | `true` (run the stack's Caddy on this fresh host) |
+| `APP_DOMAIN` / `CMS_DOMAIN` | `articles.example.com` / `cms.example.com` |
+| `ACME_EMAIL` | `you@example.com` (optional) |
+| `DIRECTUS_PUBLIC_URL` | `https://cms.example.com` |
+| `SMOKE_URL` | `https://articles.example.com/healthz` |
 
 **Secrets**
 
@@ -106,10 +114,11 @@ CLI equivalent:
 REPO=<owner>/directus-node-starter
 gh variable set SSH_HOST --env staging --repo $REPO --body "<elastic-ip>"
 gh variable set SSH_USER --env staging --repo $REPO --body "ec2-user"
-gh variable set DIRECTUS_PUBLIC_URL --env staging --repo $REPO --body "http://<elastic-ip>:8055"
-# Fresh EC2 has nothing on :80, so use the default ports:
-gh variable set WEB_PORT      --env staging --repo $REPO --body "80"
-gh variable set DIRECTUS_PORT --env staging --repo $REPO --body "8055"
+gh variable set STACK_CADDY --env staging --repo $REPO --body "true"
+gh variable set APP_DOMAIN  --env staging --repo $REPO --body "articles.example.com"
+gh variable set CMS_DOMAIN  --env staging --repo $REPO --body "cms.example.com"
+gh variable set DIRECTUS_PUBLIC_URL --env staging --repo $REPO --body "https://cms.example.com"
+gh variable set SMOKE_URL   --env staging --repo $REPO --body "https://articles.example.com/healthz"
 gh secret  set SSH_KEY  --env staging --repo $REPO < ./deploy-key   # PEM private key
 ```
 
@@ -134,23 +143,22 @@ pulled from GHCR using `GITHUB_TOKEN`, so it works even for private packages.
 
 Verify:
 
-- Frontend: `http://<elastic-ip>` (port 80)
-- Directus admin: `http://<elastic-ip>:8055/admin`
+- Frontend: `https://articles.example.com`
+- Directus admin: `https://cms.example.com/admin`
 
 Then seed content (bare Directus starts empty):
 
 ```bash
-DIRECTUS_URL=http://<elastic-ip>:8055 \
+DIRECTUS_URL=https://cms.example.com \
 ADMIN_EMAIL=admin@example.com ADMIN_PASSWORD=<your-password> \
 node scripts/seed-directus.mjs
 ```
 
 ## Caveats / cost control
 
-- **No HTTPS here.** Port 80 / 8055 are plain HTTP. For anything real, put TLS in
-  front — the easiest free option is Cloudflare ([docs/cloudflare.md](cloudflare.md));
-  the frontend on :80 can be orange-clouded directly, and a Cloudflare Tunnel
-  also covers the Directus admin without opening :8055 to the world.
+- **HTTPS** is handled by the stack's Caddy (Let's Encrypt) once DNS + 80/443 are
+  in place. If you'd rather use Cloudflare for TLS/CDN (or a Tunnel to avoid open
+  ports entirely), see [docs/cloudflare.md](cloudflare.md).
 - **RAM**: 1 GB + 2 GB swap is enough for the demo but not heavy use. Move to
   `t3.small` (paid) or switch Directus to Postgres/RDS if you outgrow SQLite.
 - **Egress**: free-tier data-transfer-out is capped (15 GB or 100 GB/month

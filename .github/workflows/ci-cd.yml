@@ -81,6 +81,12 @@ jobs:
           # GHCR creds so the host can pull (works for private packages too).
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Reverse proxy: STACK_CADDY=true => deploy a Caddy (vhost+auto-HTTPS)
+          # for a fresh host. Leave unset when the host already runs a proxy.
+          STACK_CADDY: ${{ vars.STACK_CADDY }}
+          APP_DOMAIN: ${{ vars.APP_DOMAIN }}
+          CMS_DOMAIN: ${{ vars.CMS_DOMAIN }}
+          ACME_EMAIL: ${{ vars.ACME_EMAIL }}
 
           # --- fly provider (unused unless DEPLOY_PROVIDER=fly) ---
           FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
@@ -90,21 +96,21 @@ jobs:
 
           # --- shared app config ---
           DIRECTUS_VERSION: ${{ vars.DIRECTUS_VERSION }}
-          DIRECTUS_PORT: ${{ vars.DIRECTUS_PORT }}
-          WEB_PORT: ${{ vars.WEB_PORT }}
           DIRECTUS_PUBLIC_URL: ${{ vars.DIRECTUS_PUBLIC_URL }}
           DIRECTUS_ADMIN_EMAIL: ${{ vars.DIRECTUS_ADMIN_EMAIL }}
           DIRECTUS_SECRET: ${{ secrets.DIRECTUS_SECRET }}
           DIRECTUS_ADMIN_PASSWORD: ${{ secrets.DIRECTUS_ADMIN_PASSWORD }}
 
       - name: Smoke test
-        if: ${{ vars.DEPLOY_PROVIDER == 'ssh-docker' }}
+        # Set SMOKE_URL to the public frontend health endpoint, e.g.
+        # https://articles.example.com/healthz
+        if: ${{ vars.SMOKE_URL != '' }}
         run: |
-          base="http://${{ vars.SSH_HOST }}:${{ vars.WEB_PORT || '8098' }}"
-          echo "Waiting for $base/healthz ..."
-          for i in $(seq 1 30); do
-            if curl -fsS "$base/healthz" >/dev/null 2>&1; then
-              echo "web healthy"; curl -fsS "$base/healthz"; exit 0
+          url="${{ vars.SMOKE_URL }}"
+          echo "Waiting for $url ..."
+          for i in $(seq 1 36); do
+            if curl -fsSk "$url" >/dev/null 2>&1; then
+              echo "web healthy"; curl -fsSk "$url"; exit 0
             fi
             sleep 5
           done
